@@ -35,7 +35,7 @@ class LPR_Pipeline():
         self.affine_model.load_state_dict(torch.load('weights/wpodnet.pth'))
         self.predictor = Predictor(self.affine_model)
         
-        self.yolo_model = YOLO('yolov8m.pt')
+        self.yolo_model = YOLO('weights/yolov8m.pt')
         
         # OCR
         self.OCR_config = {
@@ -95,16 +95,29 @@ class LPR_Pipeline():
         bboxes[:, [1, 3]] *= image_height
         np_bboxes = bboxes.detach().numpy()
 
-        bbox = np_bboxes[torch.argmax(kept_confidence_values)]
-        confidence = torch.max(kept_confidence_values)
-        
-        center_x, center_y, width, height = bbox            
-        if for_affine:
-            plate = image[int(center_y-height*1.5):int(center_y+height*1.5), int(center_x-width*1.5):int(center_x+width*1.5)]
+        if kept_confidence_values.numel() > 0:
+            max_index = torch.argmax(kept_confidence_values)
+            bbox = np_bboxes[max_index]
         else:
-            plate = image[int(center_y-height/2):int(center_y+height/2), int(center_x-width/2):int(center_x+width/2)]
+            # Handle the empty case, e.g., set bbox to None or a default value
+            bbox = None
         
-        return plate
+        if bbox is None:
+            return None
+        else:
+            confidence = torch.max(kept_confidence_values)
+            
+            center_x, center_y, width, height = bbox            
+            if for_affine:
+                start_y = max(0, int(center_y - height * 1.5))
+                end_y = min(image.shape[0], int(center_y + height * 1.5))
+                start_x = max(0, int(center_x - width * 1.5))
+                end_x = min(image.shape[1], int(center_x + width * 1.5))
+                plate = image[start_y:end_y, start_x:end_x]
+            else:
+                plate = image[int(center_y-height/2):int(center_y+height/2), int(center_x-width/2):int(center_x+width/2)]
+        
+            return plate
     
     def predict_affine_plate(self, image):
         prediction = self.predictor.predict(Image.fromarray(image), scaling_ratio=1.0)

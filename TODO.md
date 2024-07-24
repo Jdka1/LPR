@@ -1,2 +1,2 @@
 - [ ] Add methods to load each model
-- [ ] use transformations on images
+- [x] use transformations on images

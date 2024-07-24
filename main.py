@@ -1,1 +1,0 @@
-# TODO: use transformations on images
